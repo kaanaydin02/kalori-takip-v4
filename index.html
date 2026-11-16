@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kalori Takip</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151514" media="(prefers-color-scheme: dark)">
+<style>
+  :root{
+    --bg:#f6f5f1; --card:#ffffff; --soft:#efede7; --line:#e6e3db;
+    --text:#1d1c1a; --text-2:#6d6b64; --text-3:#a19e95;
+    --accent:#4338ca; --accent-soft:#e8e6fb;
+    --kcal:#4338ca; --protein:#e0613b; --carb:#1d9e75; --fat:#d49a12;
+    --danger:#d93f3c; --danger-soft:#fbe9e8;
+    --r:18px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151514; --card:#1f1f1d; --soft:#2a2a27; --line:#33322f;
+      --text:#f1f0ea; --text-2:#a9a79e; --text-3:#75736b;
+      --accent:#8b84f0; --accent-soft:#2c2a52;
+      --kcal:#8b84f0; --protein:#f08a68; --carb:#4fc79c; --fat:#e8b84a;
+      --danger:#f07f7c; --danger-soft:#4a2221;
+      --shadow:none;
+    }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--text);
+    padding-bottom:calc(84px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit; cursor:pointer;}
+  input{font-family:inherit;}
+  .wrap{max-width:480px; margin:0 auto; padding:calc(10px + env(safe-area-inset-top)) 16px 16px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  .page-title{font-size:26px; font-weight:700; letter-spacing:-.02em; margin:8px 2px 14px;}
+
+  .card{background:var(--card); border-radius:var(--r); padding:16px; margin-bottom:12px; box-shadow:var(--shadow); border:1px solid var(--line);}
+  .card-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .card-title{font-size:15px; font-weight:650;}
+  .muted{color:var(--text-2); font-size:13px;}
+  .link{background:none; border:none; color:var(--accent); font-size:14px; font-weight:600; padding:4px 0;}
+
+  /* Tarih */
+  .datenav{display:flex; align-items:center; justify-content:space-between; margin:4px 0 12px;}
+  .iconbtn{width:40px; height:40px; border-radius:12px; border:none; background:var(--card); color:var(--text); font-size:20px; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); border:1px solid var(--line);}
+  .datelabel{position:relative; text-align:center;}
+  .datelabel .big{font-size:20px; font-weight:700; letter-spacing:-.01em;}
+  .datelabel .small{font-size:12px; color:var(--text-2);}
+  .datelabel input{position:absolute; inset:0; opacity:0; width:100%;}
+
+  /* Özet */
+  .summary{display:flex; align-items:center; gap:18px;}
+  .ring{position:relative; width:132px; height:132px; flex-shrink:0;}
+  .ring svg{transform:rotate(-90deg);}
+  .ring .center{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .ring .num{font-size:28px; font-weight:750; letter-spacing:-.03em; line-height:1;}
+  .ring .of{font-size:12px; color:var(--text-2); margin-top:4px;}
+  .macros{flex:1; display:flex; flex-direction:column; gap:11px;}
+  .macro .top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;}
+  .macro .top b{font-weight:650;}
+  .macro .top span{color:var(--text-2);}
+  .track{height:7px; border-radius:6px; background:var(--soft); overflow:hidden;}
+  .fill{height:100%; border-radius:6px; transition:width .3s;}
+  .remain{margin-top:14px; padding-top:12px; border-top:1px solid var(--line); display:flex; justify-content:space-between; font-size:14px;}
+  .remain b{font-weight:650;}
+  .remain.over b{color:var(--danger);}
+
+  /* Kayıt listesi */
+  .entry{display:flex; align-items:center; gap:12px; padding:11px 2px; border-bottom:1px solid var(--line);}
+  .entry:last-child{border-bottom:none;}
+  .entry .info{flex:1; min-width:0;}
+  .entry .name{font-size:15px; font-weight:550; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .entry .sub{font-size:12.5px; color:var(--text-2); margin-top:2px;}
+  .entry .kc{font-size:15px; font-weight:650; white-space:nowrap;}
+  .entry .kc small{font-size:11px; color:var(--text-2); font-weight:500;}
+  .empty{color:var(--text-3); font-size:14px; text-align:center; padding:22px 8px;}
+
+  .fab{position:fixed; right:max(18px, calc(50% - 222px)); bottom:calc(84px + env(safe-area-inset-bottom)); width:58px; height:58px; border-radius:20px; border:none; background:var(--accent); color:#fff; font-size:30px; line-height:1; box-shadow:0 6px 20px rgba(67,56,202,.35); z-index:5;}
+
+  /* Alt menü */
+  .tabs{position:fixed; bottom:0; left:0; right:0; z-index:6; background:var(--card); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom);}
+  .tabs .in{display:flex; max-width:480px; margin:0 auto;}
+  .tabs button{flex:1; padding:10px 0 9px; background:none; border:none; font-size:11.5px; color:var(--text-3); display:flex; flex-direction:column; align-items:center; gap:3px;}
+  .tabs button svg{width:22px; height:22px;}
+  .tabs button.active{color:var(--accent); font-weight:650;}
+
+  /* Form */
+  input[type=text],input[type=number],input[type=search]{
+    width:100%; padding:12px 14px; border:1px solid var(--line); border-radius:12px;
+    background:var(--soft); color:var(--text); font-size:16px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
+  label.l{font-size:12.5px; color:var(--text-2); display:block; margin:0 0 5px 2px;}
+  .field{margin-bottom:12px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .btn{width:100%; padding:14px; border-radius:14px; border:none; background:var(--soft); color:var(--text); font-size:15px; font-weight:600;}
+  .btn.primary{background:var(--accent); color:#fff;}
+  .btn.danger{background:var(--danger-soft); color:var(--danger);}
+  .btnrow{display:flex; gap:10px; margin-top:6px;}
+  .seg{display:flex; background:var(--soft); border-radius:12px; padding:3px; margin-bottom:12px;}
+  .seg button{flex:1; padding:9px; border:none; border-radius:10px; background:transparent; color:var(--text-2); font-size:14px; font-weight:550;}
+  .seg button.active{background:var(--card); color:var(--text); box-shadow:var(--shadow);}
+
+  /* Sheet */
+  .sheet-bg{position:fixed; inset:0; background:rgba(0,0,0,.38); display:none; align-items:flex-end; justify-content:center; z-index:20;}
+  .sheet-bg.open{display:flex;}
+  .sheet-bg.top{z-index:25;}
+  .sheet{background:var(--card); width:100%; max-width:480px; border-radius:22px 22px 0 0; padding:10px 16px calc(18px + env(safe-area-inset-bottom)); max-height:92vh; display:flex; flex-direction:column; animation:up .2s ease-out;}
+  @keyframes up{from{transform:translateY(30px); opacity:.6} to{transform:none; opacity:1}}
+  .grab{width:38px; height:5px; border-radius:3px; background:var(--line); margin:0 auto 10px;}
+  .sheet-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:10px;}
+  .sheet-title{font-size:18px; font-weight:700; letter-spacing:-.01em;}
+  .sheet-body{overflow-y:auto; flex:1; min-height:0;}
+  .sheet.tall{height:88vh;}
+
+  /* Arama sonuçları */
+  .res{display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--line);}
+  .res:last-child{border-bottom:none;}
+  .res .info{flex:1; min-width:0;}
+  .res .name{font-size:15px; font-weight:550; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .res .sub{font-size:12.5px; color:var(--text-2); margin-top:2px;}
+  .res .kc{font-size:14px; font-weight:650; white-space:nowrap; text-align:right;}
+  .res .kc small{display:block; font-size:11px; color:var(--text-2); font-weight:500;}
+  .tag{display:inline-block; font-size:10.5px; font-weight:650; padding:1px 6px; border-radius:6px; background:var(--accent-soft); color:var(--accent); margin-right:4px; vertical-align:1px;}
+  .tag.warn{background:var(--danger-soft); color:var(--danger);}
+  .section-label{font-size:12px; font-weight:650; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; margin:12px 4px 2px;}
+
+  /* Miktar ekranı */
+  .amount-wrap{display:flex; align-items:baseline; justify-content:center; gap:6px; margin:6px 0 12px;}
+  .amount-wrap input{width:150px; text-align:center; font-size:40px; font-weight:750; padding:8px; letter-spacing:-.02em;}
+  .amount-wrap .u{font-size:20px; color:var(--text-2); font-weight:600;}
+  .chips{display:flex; flex-wrap:wrap; gap:7px; justify-content:center; margin-bottom:14px;}
+  .chip{padding:8px 13px; border-radius:20px; border:1px solid var(--line); background:var(--card); color:var(--text); font-size:14px; font-weight:550;}
+  .chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .mgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px;}
+  .mbox{background:var(--soft); border-radius:12px; padding:10px 4px; text-align:center;}
+  .mbox .v{font-size:18px; font-weight:700;}
+  .mbox .k{font-size:11.5px; color:var(--text-2); margin-top:2px;}
+  .note{font-size:12.5px; color:var(--danger); background:var(--danger-soft); border-radius:10px; padding:8px 10px; margin-bottom:12px;}
+
+  /* İstatistik / kilo */
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .stats.three{grid-template-columns:repeat(3,1fr);}
+  .stat{background:var(--soft); border-radius:12px; padding:11px 4px; text-align:center;}
+  .stat .v{font-size:18px; font-weight:700; letter-spacing:-.01em;}
+  .stat .k{font-size:11.5px; color:var(--text-2); margin-top:2px;}
+  canvas.chart{width:100%; height:150px; display:block;}
+  .wrow{display:flex; justify-content:space-between; align-items:center; padding:10px 2px; border-bottom:1px solid var(--line); font-size:15px;}
+  .wrow:last-child{border-bottom:none;}
+  .wrow .d{color:var(--text-2); font-size:13px;}
+  .x{background:none; border:none; color:var(--text-3); font-size:18px; padding:2px 6px;}
+  .weight-in{display:flex; gap:10px; align-items:center;}
+  .weight-in input{font-size:22px; font-weight:700; text-align:center;}
+  .weight-in .btn{width:auto; padding:13px 20px;}
+
+  .dayflag{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);}
+  .dayflag .t{font-size:14px; font-weight:550;}
+  .dayflag .h{font-size:12px; color:var(--text-2); margin-top:2px;}
+  .switch{position:relative; width:50px; height:30px; flex-shrink:0;}
+  .switch input{opacity:0; width:0; height:0;}
+  .switch span{position:absolute; inset:0; background:var(--line); border-radius:20px; transition:.2s;}
+  .switch span::before{content:''; position:absolute; width:24px; height:24px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .switch input:checked + span{background:var(--carb);}
+  .switch input:checked + span::before{transform:translateX(20px);}
+  .tag.edit{background:var(--soft); color:var(--text-2);}
+  .legend{display:flex; gap:14px; font-size:12px; color:var(--text-2); margin:-2px 0 8px;}
+  .legend span{display:flex; align-items:center; gap:5px;}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:3px;}
+  #toast{position:fixed; top:calc(14px + env(safe-area-inset-top)); left:50%; transform:translate(-50%,-10px); background:var(--text); color:var(--bg); padding:10px 18px; border-radius:12px; font-size:14px; font-weight:550; opacity:0; pointer-events:none; transition:all .2s; z-index:40;}
+  #toast.show{opacity:1; transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ GÜNLÜK ============ -->
+  <section class="view active" id="view-log">
+    <div class="datenav">
+      <button class="iconbtn" id="prevDay" aria-label="Önceki gün">‹</button>
+      <div class="datelabel">
+        <div class="big" id="dateBig">Bugün</div>
+        <div class="small" id="dateSmall"></div>
+        <input type="date" id="dateInput" aria-label="Tarih seç">
+      </div>
+      <button class="iconbtn" id="nextDay" aria-label="Sonraki gün">›</button>
+    </div>
+
+    <div class="card">
+      <div class="summary">
+        <div class="ring">
+          <svg width="132" height="132" viewBox="0 0 132 132">
+            <circle cx="66" cy="66" r="56" fill="none" stroke="var(--soft)" stroke-width="12"/>
+            <circle id="ringFill" cx="66" cy="66" r="56" fill="none" stroke="var(--kcal)" stroke-width="12" stroke-linecap="round" stroke-dasharray="351.86" stroke-dashoffset="351.86" style="transition:stroke-dashoffset .4s"/>
+          </svg>
+          <div class="center">
+            <div class="num" id="kcalNum">0</div>
+            <div class="of" id="kcalOf">/ 0 kcal</div>
+          </div>
+        </div>
+        <div class="macros" id="macroBars"></div>
+      </div>
+      <div class="remain" id="remainRow">
+        <span class="muted" id="remainLabel">Kalan</span>
+        <b id="remainVal">0 kcal</b>
+      </div>
+      <div class="dayflag">
+        <div><div class="t">İstatistiğe dahil</div><div class="h" id="flagHint"></div></div>
+        <label class="switch"><input type="checkbox" id="flagToggle"><span></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Yediklerim</div>
+        <button class="link" id="editGoalsBtn">Hedefler</button>
+      </div>
+      <div id="entryList"></div>
+    </div>
+  </section>
+
+  <!-- ============ BESİNLER ============ -->
+  <section class="view" id="view-foods">
+    <div class="page-title">Besinlerim</div>
+    <div class="field"><input type="search" id="libSearch" placeholder="Kayıtlı besinlerde ara"></div>
+    <div class="card" style="padding:4px 14px;">
+      <div id="libList"></div>
+    </div>
+    <button class="btn primary" id="newFoodBtn">+ Yeni besin</button>
+    <p class="muted" style="text-align:center; margin-top:14px;" id="migrosInfo"></p>
+  </section>
+
+  <!-- ============ KİLO ============ -->
+  <section class="view" id="view-weight">
+    <div class="page-title">Kilo</div>
+    <div class="card">
+      <label class="l">Bugünün kilosu</label>
+      <div class="weight-in">
+        <input type="number" id="weightInput" inputmode="decimal" step="0.1" placeholder="78.4">
+        <button class="btn primary" id="saveWeightBtn">Kaydet</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="stats three" id="weightStats"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Son 30 kayıt</div></div>
+      <canvas class="chart" id="weightChart"></canvas>
+      <div class="empty" id="weightChartEmpty">Henüz kilo kaydı yok.</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Geçmiş</div></div>
+      <div id="weightHistory"></div>
+    </div>
+  </section>
+
+  <!-- ============ İSTATİSTİK ============ -->
+  <section class="view" id="view-stats">
+    <div class="page-title">İstatistik</div>
+    <div class="seg" id="periodSeg">
+      <button class="active" data-p="week">Haftalık</button>
+      <button data-p="month">Aylık</button>
+    </div>
+    <div class="datenav" style="margin-top:-2px">
+      <button class="iconbtn" id="perPrev" aria-label="Önceki">‹</button>
+      <div class="datelabel"><div class="big" id="perBig" style="font-size:18px"></div><div class="small" id="perSmall"></div></div>
+      <button class="iconbtn" id="perNext" aria-label="Sonraki">›</button>
+    </div>
+    <div class="card">
+      <div class="card-head" style="margin-bottom:2px"><div class="card-title">Günlük ortalama</div></div>
+      <p class="muted" id="statDaysNote" style="margin:0 0 10px"></p>
+      <div class="stats" id="avgStats"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Kalori hedefi</div></div>
+      <div class="stats three" id="goalStats"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Kalori</div><span class="muted">kesikli çizgi: hedef</span></div>
+      <canvas class="chart" id="statsChart" style="height:170px"></canvas>
+      <div class="empty" id="statsChartEmpty">Bu dönemde kayıt yok.</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Kilo</div><span class="muted" id="weightDelta"></span></div>
+      <canvas class="chart" id="weightPerChart" style="height:170px"></canvas>
+      <div class="empty" id="weightPerEmpty">Bu dönemde kilo kaydı yok.</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Yedek</div><span class="muted" id="backupNote"></span></div>
+      <p class="muted" style="margin:0 0 12px;">Tüm verilerini (besinler, günlük kayıtlar, kilo, hedefler) tek dosya olarak kaydet ya da geri yükle.</p>
+      <div class="btnrow">
+        <button class="btn" id="importBtn">İçe aktar</button>
+        <button class="btn primary" id="exportBtn">Dışa aktar</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+    </div>
+    <div class="card" id="oldDataCard" style="display:none">
+      <div class="card-head"><div class="card-title">Eski uygulamanın verisi</div></div>
+      <p class="muted" style="margin:0 0 12px;">Önceki kalori uygulamandaki kayıtlar bu telefonda duruyor. Bu uygulama onları kullanmıyor; istersen ayrı bir dosya olarak indirip sakla.</p>
+      <button class="btn" id="oldExportBtn">Eski veriyi dosyaya indir</button>
+    </div>
+  </section>
+</div>
+
+<button class="fab" id="fab" aria-label="Yemek ekle">+</button>
+
+<nav class="tabs"><div class="in">
+  <button class="tab active" data-view="view-log">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Günlük</button>
+  <button class="tab" data-view="view-foods">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Besinler</button>
+  <button class="tab" data-view="view-weight">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M9 10a3 3 0 0 1 6 0M12 10l1.5-2"/></svg>Kilo</button>
+  <button class="tab" data-view="view-stats">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>İstatistik</button>
+</div></nav>
+
+<!-- ============ ARAMA SHEET ============ -->
+<div class="sheet-bg" id="sheetSearch">
+  <div class="sheet tall">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">Yemek ekle</div>
+      <button class="link" id="openQuick">Hızlı kalori</button>
+    </div>
+    <div class="field"><input type="search" id="searchInput" placeholder="Ara: süt, yoğurt, ülker..." autocomplete="off"></div>
+    <div class="sheet-body" id="searchResults"></div>
+  </div>
+</div>
+
+<!-- ============ MİKTAR SHEET ============ -->
+<div class="sheet-bg top" id="sheetAmount">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <div style="min-width:0;">
+        <div class="sheet-title" id="amtTitle" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+        <div class="muted" id="amtSub"></div>
+      </div>
+      <button class="link" id="amtEditFood">Düzenle</button>
+    </div>
+    <div class="sheet-body">
+      <div class="amount-wrap">
+        <input type="number" id="amtInput" inputmode="decimal" placeholder="0">
+        <span class="u" id="amtUnit">g</span>
+      </div>
+      <div class="mgrid" id="amtPreview"></div>
+      <div class="note" id="amtNote" style="display:none;"></div>
+      <div class="btnrow">
+        <button class="btn danger" id="amtDelete" style="display:none;">Sil</button>
+        <button class="btn primary" id="amtSave">Ekle</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HIZLI EKLE SHEET ============ -->
+<div class="sheet-bg top" id="sheetQuick">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sheet-head"><div class="sheet-title" id="quickTitle">Hızlı kalori</div></div>
+    <div class="sheet-body">
+      <div class="field"><label class="l">İsim (opsiyonel)</label><input type="text" id="qName" placeholder="ör. restoranda makarna"></div>
+      <div class="field"><label class="l">Kalori (kcal)</label><input type="number" id="qKcal" inputmode="decimal"></div>
+      <div class="grid2">
+        <div class="field"><label class="l">Protein (g)</label><input type="number" id="qProtein" inputmode="decimal"></div>
+        <div class="field"><label class="l">Karbonhidrat (g)</label><input type="number" id="qCarb" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label class="l">Yağ (g)</label><input type="number" id="qFat" inputmode="decimal"></div>
+      <div class="btnrow">
+        <button class="btn danger" id="qDelete" style="display:none;">Sil</button>
+        <button class="btn primary" id="qSave">Ekle</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BESİN SHEET ============ -->
+<div class="sheet-bg top" id="sheetFood">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sheet-head"><div class="sheet-title" id="foodTitle">Yeni besin</div></div>
+    <div class="sheet-body">
+      <div class="field"><label class="l">İsim</label><input type="text" id="fName" placeholder="ör. Hindi füme"></div>
+      <div class="seg" id="fUnitSeg">
+        <button data-unit="g" class="active">Gram (g)</button>
+        <button data-unit="ml">Mililitre (ml)</button>
+      </div>
+      <label class="l" id="fPer">100 g başına</label>
+      <div class="grid2">
+        <div class="field"><label class="l">Kalori (kcal)</label><input type="number" id="fKcal" inputmode="decimal"></div>
+        <div class="field"><label class="l">Protein (g)</label><input type="number" id="fProtein" inputmode="decimal"></div>
+        <div class="field"><label class="l">Karbonhidrat (g)</label><input type="number" id="fCarb" inputmode="decimal"></div>
+        <div class="field"><label class="l">Yağ (g)</label><input type="number" id="fFat" inputmode="decimal"></div>
+      </div>
+      <div class="btnrow">
+        <button class="btn danger" id="fDelete" style="display:none;">Sil</button>
+        <button class="btn primary" id="fSave">Kaydet</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HEDEF SHEET ============ -->
+<div class="sheet-bg" id="sheetGoals">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sheet-head"><div class="sheet-title">Günlük hedefler</div></div>
+    <div class="sheet-body">
+      <div class="field"><label class="l">Kalori (kcal)</label><input type="number" id="gKcal" inputmode="decimal"></div>
+      <div class="grid2">
+        <div class="field"><label class="l">Protein (g)</label><input type="number" id="gProtein" inputmode="decimal"></div>
+        <div class="field"><label class="l">Karbonhidrat (g)</label><input type="number" id="gCarb" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label class="l">Yağ (g)</label><input type="number" id="gFat" inputmode="decimal"></div>
+      <button class="btn primary" id="gSave">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   VERİ — localStorage anahtarları eski sürümle aynı:
+   k4_foods, k4_goals, k4_day:YYYY-MM-DD, k4_weight:YYYY-MM-DD
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const MACROS = [
+  {key:'protein', label:'Protein', short:'P', color:'var(--protein)'},
+  {key:'carb',    label:'Karbonhidrat', short:'K', color:'var(--carb)'},
+  {key:'fat',     label:'Yağ', short:'Y', color:'var(--fat)'},
+];
+
+let foods = [];
+let goals = {kcal:2000, protein:120, carb:200, fat:65};
+let migros = [];          // foods.json'dan gelen ürünler
+let migrosLoaded = false;
+let currentDate = ymd(new Date());
+let dayEntries = [];
+let usage = {};          // besin id -> {n: kullanım sayısı, t: son kullanım}
+let overrides = {};      // Genel/Migros ürünü id -> senin düzelttiğin değerler
+let dbById = new Map();
+
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function parseYmd(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function addDays(s, n){ const d = parseYmd(s); d.setDate(d.getDate()+n); return ymd(d); }
+function round(n, d=0){ const f = 10**d; return Math.round(((n||0) + Number.EPSILON) * f) / f; }
+function num(v){ const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? null : x; }
+function esc(s){ const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+function fmt(v, d=0){ return v == null ? '—' : String(round(v, d)).replace('.', ','); }
+
+function load(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ toast('Kaydedilemedi'); } }
+
+function loadAll(){
+  foods = load('k4_foods', []);
+  goals = Object.assign({kcal:2000, protein:120, carb:200, fat:65}, load('k4_goals', {}));
+  usage = load('k4_usage', null);
+  overrides = load('k4_over', {});
+  if(!usage){
+    // İlk açılış: eski "lastUsed" bilgisini sayaca taşı, önceki sürümün Besinlerim'e kopyaladığı Migros/Genel ürünlerini çıkar
+    usage = {};
+    foods.forEach(f => { if(f.lastUsed) usage[f.id] = {n:1, t:f.lastUsed}; });
+    foods = foods.filter(f => f.src !== 'migros' && f.src !== 'genel');
+    saveFoods(); saveUsage();
+  }
+}
+function saveUsage(){ save('k4_usage', usage); }
+function saveOverrides(){ save('k4_over', overrides); }
+function uses(id){ return usage[id]?.n || 0; }
+function bumpUsage(id){ const u = usage[id] || {n:0, t:0}; usage[id] = {n:u.n+1, t:Date.now()}; saveUsage(); }
+
+// Bir besini id ile bul: önce kendi besinlerin, sonra Genel/Migros (düzelttiysen düzeltilmiş haliyle)
+function getFood(id){
+  const own = foods.find(f => f.id === id);
+  if(own) return own;
+  const b = dbById.get(id);
+  if(!b) return null;
+  const o = overrides[id];
+  return o ? {...b, ...o, edited:true} : b;
+}
+function isDb(f){ return !!f.src && !foods.includes(f); }
+function saveFoods(){ save('k4_foods', foods); }
+function loadDay(date){ dayEntries = load('k4_day:'+date, []); }
+function saveDay(){ save('k4_day:'+currentDate, dayEntries); if(typeof renderFlag==='function') renderFlag(); }
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1500);
+}
+
+/* =========================================================
+   ARAMA — Türkçe karakterden bağımsız ("sut" -> "Süt")
+   ========================================================= */
+function norm(s){
+  return (s||'').toLocaleLowerCase('tr')
+    .replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g')
+    .replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+function matches(key, tokens){ return tokens.every(t => key.includes(t)); }
+
+// format: {items:[[kod, ad, marka, kcal, protein, karb, yag, net/porsiyon, birim, kaynak?, porsiyon_adı?], ...]}
+async function loadDb(file, src){
+  try{
+    const r = await fetch(file);
+    if(!r.ok) return [];
+    const data = await r.json();
+    return (data.items || []).map(a => ({
+      id:(src==='genel' ? '' : 'm')+a[0], sku:String(a[0]), name:a[1], brand:a[2]||'',
+      kcal:a[3], protein:a[4], carb:a[5], fat:a[6], net:a[7], unit:a[8]||'g',
+      src:a[9]||src, portion:a[10]||null,
+      _k: norm(a[1]+' '+(a[2]||''))
+    }));
+  }catch(e){ return []; }
+}
+async function loadMigros(){
+  const [g, m] = await Promise.all([loadDb('genel.json','genel'), loadDb('foods.json','migros')]);
+  migros = [...g, ...m];
+  dbById = new Map(migros.map(x => [x.id, x]));
+  migrosLoaded = migros.length > 0;
+  renderLib();
+  $('migrosInfo').textContent = migrosLoaded
+    ? `Aramada ${g.length} genel besin ve ${m.length.toLocaleString('tr-TR')} Migros ürünü de var.` : '';
+  if($('sheetSearch').classList.contains('open')) renderSearch($('searchInput').value);
+}
+
+function byUse(a,b){ return uses(b.id) - uses(a.id) || (usage[b.id]?.t||0) - (usage[a.id]?.t||0) || a.name.localeCompare(b.name,'tr'); }
+
+function searchAll(q){
+  const tokens = norm(q).split(/\s+/).filter(Boolean);
+  const own = foods.filter(f => matches(norm(f.name+' '+(f.brand||'')), tokens)).sort(byUse);
+  let mg = [];
+  if(migrosLoaded && tokens.length){
+    mg = migros.filter(m => matches(m._k, tokens));
+    // Sıralama: sık kullandıkların önce; sonra kelimenin tamamı eşleşen ("süt") > kelime başı ("sütaş") > kelime içi
+    const score = m => {
+      const words = (m._w ||= norm(m.name).split(/[^a-z0-9%]+/));
+      return tokens.reduce((s,t) => s + (words.includes(t) ? 0 : words.some(w=>w.startsWith(t)) ? 1 : 3), 0);
+    };
+    mg = mg.map(m => [score(m), m])
+           .sort((a,b) => uses(b[1].id) - uses(a[1].id) || a[0]-b[0] || a[1].name.length - b[1].name.length)
+           .map(x => getFood(x[1].id));
+  }
+  const gen = mg.filter(m => m.src === 'genel').slice(0, 15);
+  mg = mg.filter(m => m.src !== 'genel').slice(0, 60);
+  return {own, gen, mg};
+}
+
+/* =========================================================
+   GÜNLÜK EKRAN
+   ========================================================= */
+function totals(entries){
+  const t = {kcal:0, protein:0, carb:0, fat:0};
+  entries.forEach(e => { t.kcal += e.kcal||0; t.protein += e.protein||0; t.carb += e.carb||0; t.fat += e.fat||0; });
+  return t;
+}
+
+function renderDate(){
+  const today = ymd(new Date());
+  const map = {[today]:'Bugün', [addDays(today,-1)]:'Dün', [addDays(today,1)]:'Yarın'};
+  const d = parseYmd(currentDate);
+  const long = d.toLocaleDateString('tr-TR', {day:'numeric', month:'long', weekday:'long'});
+  $('dateBig').textContent = map[currentDate] || d.toLocaleDateString('tr-TR', {day:'numeric', month:'long'});
+  $('dateSmall').textContent = map[currentDate] ? long : d.toLocaleDateString('tr-TR', {weekday:'long', year:'numeric'});
+  $('dateInput').value = currentDate;
+}
+
+function renderSummary(){
+  const t = totals(dayEntries);
+  const C = 2 * Math.PI * 56;
+  const pct = goals.kcal ? Math.min(1, t.kcal / goals.kcal) : 0;
+  const over = goals.kcal && t.kcal > goals.kcal;
+  $('ringFill').style.strokeDashoffset = C * (1 - pct);
+  $('ringFill').style.stroke = over ? 'var(--danger)' : 'var(--kcal)';
+  $('kcalNum').textContent = round(t.kcal);
+  $('kcalOf').textContent = `/ ${round(goals.kcal)} kcal`;
+  $('macroBars').innerHTML = MACROS.map(m => {
+    const v = t[m.key], g = goals[m.key] || 0;
+    const w = g ? Math.min(100, v / g * 100) : 0;
+    return `<div class="macro">
+      <div class="top"><b>${m.label}</b><span>${round(v)} / ${round(g)} g</span></div>
+      <div class="track"><div class="fill" style="width:${w}%; background:${m.color}"></div></div>
+    </div>`;
+  }).join('');
+  const diff = goals.kcal - t.kcal;
+  $('remainRow').classList.toggle('over', diff < 0);
+  $('remainLabel').textContent = diff < 0 ? 'Hedefi aştın' : 'Kalan';
+  $('remainVal').textContent = `${round(Math.abs(diff))} kcal`;
+}
+
+function macroLine(o, d=0){
+  return `P ${fmt(o.protein,d)} · K ${fmt(o.carb,d)} · Y ${fmt(o.fat,d)}`;
+}
+
+function renderEntries(){
+  const list = $('entryList');
+  if(!dayEntries.length){
+    list.innerHTML = `<div class="empty">Henüz bir şey eklemedin.<br>Sağ alttaki <b>+</b> ile başla.</div>`;
+    return;
+  }
+  list.innerHTML = dayEntries.map((e,i) => `
+    <div class="entry" data-i="${i}">
+      <div class="info">
+        <div class="name">${esc(e.foodName)}</div>
+        <div class="sub">${e.amount != null ? round(e.amount,1)+' '+e.unit+' · ' : ''}${macroLine(e,1)}</div>
+      </div>
+      <div class="kc">${round(e.kcal)} <small>kcal</small></div>
+    </div>`).join('');
+  list.querySelectorAll('.entry').forEach(el => el.addEventListener('click', () => editEntry(+el.dataset.i)));
+}
+
+// Gün istatistiğe dahil mi? Elle ayarlanır. Ayarlanmamışsa: kayıt varsa dahil, boşsa değil.
+function dayIncluded(date, entries){
+  const f = localStorage.getItem('k4_flag:'+date);
+  return f ? f === 'in' : entries.length > 0;
+}
+function renderFlag(){
+  const inc = dayIncluded(currentDate, dayEntries);
+  $('flagToggle').checked = inc;
+  $('flagHint').textContent = inc
+    ? (dayEntries.length ? 'Ortalamalara katılıyor' : 'Boş gün 0 kcal olarak sayılıyor')
+    : (dayEntries.length ? 'Eksik gün, ortalamalara katılmıyor' : 'Kayıt yok, ortalamalara katılmıyor');
+}
+function refreshLog(){ loadDay(currentDate); renderDate(); renderSummary(); renderEntries(); renderFlag(); }
+
+/* =========================================================
+   SHEET YÖNETİMİ
+   ========================================================= */
+function openSheet(id){ $(id).classList.add('open'); }
+function closeSheet(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('.sheet-bg').forEach(bg => bg.addEventListener('click', e => { if(e.target === bg) closeSheet(bg.id); }));
+
+/* ---------- Arama ---------- */
+function openSearch(){
+  $('searchInput').value = '';
+  renderSearch('');
+  openSheet('sheetSearch');
+  setTimeout(()=>$('searchInput').focus(), 150);
+}
+
+function resultRow(f){
+  const db = isDb(f);
+  const miss = f.kcal == null || f.protein == null || f.carb == null;
+  const tags = (db ? `<span class="tag">${f.src==='genel'?'Genel':'Migros'}</span>` : '')
+             + (f.edited ? '<span class="tag edit">düzenlendi</span>' : '')
+             + (miss ? '<span class="tag warn">eksik</span>' : '');
+  return `<div class="res" data-id="${esc(f.id)}">
+    <div class="info">
+      <div class="name">${esc(f.name)}</div>
+      <div class="sub">${tags}${f.brand && !db ? esc(f.brand)+' · ' : ''}${macroLine(f,1)}</div>
+    </div>
+    <div class="kc">${fmt(f.kcal)}<small>kcal / 100${f.unit}</small></div>
+  </div>`;
+}
+
+function renderSearch(q){
+  const box = $('searchResults');
+  let html = '';
+  if(!q.trim()){
+    const freq = Object.keys(usage).sort((a,b) => usage[b].n - usage[a].n || usage[b].t - usage[a].t)
+                   .map(getFood).filter(Boolean).slice(0, 30);
+    const list = freq.length ? freq : foods.slice().sort(byUse).slice(0, 30);
+    if(list.length){
+      html += `<div class="section-label">${freq.length ? 'Sık kullandıkların' : 'Besinlerin'}</div>`;
+      html += list.map(resultRow).join('');
+    } else {
+      html = `<div class="empty">Aramaya başla.</div>`;
+    }
+  } else {
+    const {own, gen, mg} = searchAll(q);
+    if(own.length) html += `<div class="section-label">Besinlerim</div>` + own.map(resultRow).join('');
+    if(gen.length) html += `<div class="section-label">Genel</div>` + gen.map(resultRow).join('');
+    if(mg.length) html += `<div class="section-label">Migros</div>` + mg.map(resultRow).join('');
+    if(!own.length && !gen.length && !mg.length){
+      html = `<div class="empty">"${esc(q)}" bulunamadı.<br><button class="link" id="addMissing">+ Yeni besin olarak ekle</button></div>`;
+    }
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('.res').forEach(el => el.addEventListener('click', () => {
+    const food = getFood(el.dataset.id);
+    if(food) openAmount({food});
+  }));
+  const am = $('addMissing');
+  if(am) am.addEventListener('click', () => openFoodSheet(null, q.trim()));
+}
+
+/* ---------- Miktar ---------- */
+let amt = null;   // {food, entryIdx}
+
+function openAmount({food, entryIdx=null, amount=null}){
+  amt = {food, entryIdx};
+  $('amtTitle').textContent = food.name;
+  $('amtSub').textContent = `${food.brand ? food.brand+' · ' : ''}100${food.unit}: ${fmt(food.kcal)} kcal`;
+  $('amtUnit').textContent = food.unit;
+  $('amtEditFood').style.display = getFood(food.id) ? '' : 'none';
+  $('amtSave').textContent = entryIdx != null ? 'Kaydet' : 'Ekle';
+  $('amtDelete').style.display = entryIdx != null ? '' : 'none';
+  const miss = ['kcal','protein','carb'].filter(k => food[k] == null);
+  $('amtNote').style.display = miss.length ? '' : 'none';
+  $('amtNote').textContent = miss.length ? 'Bu üründe bazı değerler eksik, 0 kabul edilecek. "Düzenle" ile düzeltebilirsin.' : '';
+  // Miktar elle girilir; sadece mevcut bir kaydı düzenlerken eski miktar dolu gelir
+  $('amtInput').value = amount != null ? amount : '';
+  updateAmount();
+  openSheet('sheetAmount');
+  setTimeout(()=>{ $('amtInput').focus(); $('amtInput').select(); }, 150);
+}
+
+function calc(food, a){
+  const f = a / 100;
+  return {kcal:(food.kcal||0)*f, protein:(food.protein||0)*f, carb:(food.carb||0)*f, fat: food.fat == null ? null : food.fat*f};
+}
+
+function updateAmount(){
+  const a = num($('amtInput').value);
+  const v = a && a > 0 ? calc(amt.food, a) : {kcal:0, protein:0, carb:0, fat: amt.food.fat == null ? null : 0};
+  $('amtPreview').innerHTML = [
+    {v:v.kcal, k:'kcal', c:'var(--kcal)', d:0},
+    {v:v.protein, k:'protein', c:'var(--protein)', d:1},
+    {v:v.carb, k:'karb', c:'var(--carb)', d:1},
+    {v:v.fat, k:'yağ', c:'var(--fat)', d:1},
+  ].map(x=>`<div class="mbox"><div class="v" style="color:${x.c}">${fmt(x.v, x.d)}</div><div class="k">${x.k}</div></div>`).join('');
+}
+
+function saveAmount(){
+  const a = num($('amtInput').value);
+  if(!a || a <= 0){ toast('Miktar gir'); return; }
+  const food = amt.food;
+  const v = calc(food, a);
+  const entry = {foodId:food.id, foodName:food.name, amount:a, unit:food.unit,
+                 kcal:v.kcal, protein:v.protein, carb:v.carb, fat:v.fat,
+                 base:{kcal:food.kcal||0, protein:food.protein||0, carb:food.carb||0, fat:food.fat ?? null}};
+  const isNew = amt.entryIdx == null;
+  if(isNew){ dayEntries.push(entry); bumpUsage(food.id); } else dayEntries[amt.entryIdx] = entry;
+  saveDay();
+  closeSheet('sheetAmount'); closeSheet('sheetSearch');
+  renderSummary(); renderEntries();
+  toast(isNew ? `${food.name.slice(0,28)} eklendi` : 'Güncellendi');
+}
+
+function editEntry(i){
+  const e = dayEntries[i];
+  if(e.amount == null){ openQuick(i); return; }
+  let food = getFood(e.foodId);
+  if(!food){
+    // besin silinmişse kayıttaki değerlerden 100 birimlik değeri geri hesapla
+    const b = e.base || {kcal:e.kcal/e.amount*100, protein:e.protein/e.amount*100, carb:e.carb/e.amount*100, fat:(e.fat||0)/e.amount*100};
+    food = {id:e.foodId, name:e.foodName, unit:e.unit, ...b};
+  }
+  openAmount({food, entryIdx:i, amount:e.amount});
+}
+
+/* ---------- Hızlı kalori ---------- */
+let quickIdx = null;
+function openQuick(i=null){
+  quickIdx = i;
+  const e = i != null ? dayEntries[i] : null;
+  $('quickTitle').textContent = e ? 'Kaydı düzenle' : 'Hızlı kalori';
+  $('qName').value = e && e.foodName !== 'Hızlı ekleme' ? e.foodName : '';
+  $('qKcal').value = e ? round(e.kcal) : '';
+  $('qProtein').value = e && e.protein ? round(e.protein,1) : '';
+  $('qCarb').value = e && e.carb ? round(e.carb,1) : '';
+  $('qFat').value = e && e.fat ? round(e.fat,1) : '';
+  $('qSave').textContent = e ? 'Kaydet' : 'Ekle';
+  $('qDelete').style.display = e ? '' : 'none';
+  openSheet('sheetQuick');
+}
+function saveQuick(){
+  const kcal = num($('qKcal').value);
+  if(!kcal || kcal <= 0){ toast('Kalori gir'); return; }
+  const entry = {foodId:null, foodName:$('qName').value.trim() || 'Hızlı ekleme', amount:null, unit:'',
+                 kcal, protein:num($('qProtein').value)||0, carb:num($('qCarb').value)||0, fat:num($('qFat').value)||0};
+  if(quickIdx != null) dayEntries[quickIdx] = entry; else dayEntries.push(entry);
+  saveDay(); closeSheet('sheetQuick'); closeSheet('sheetSearch');
+  renderSummary(); renderEntries(); toast('Kaydedildi');
+}
+function deleteEntry(i){
+  dayEntries.splice(i,1); saveDay();
+  renderSummary(); renderEntries(); toast('Silindi');
+}
+
+/* =========================================================
+   BESİNLERİM: kendi eklediklerin + değerini düzelttiğin Genel/Migros ürünleri
+   ========================================================= */
+function renderLib(){
+  const tokens = norm($('libSearch').value).split(/\s+/).filter(Boolean);
+  const all = [...foods, ...Object.keys(overrides).map(getFood).filter(Boolean)];
+  const list = all.filter(f => matches(norm(f.name+' '+(f.brand||'')), tokens)).sort(byUse);
+  const box = $('libList');
+  if(!list.length){ box.innerHTML = `<div class="empty">${all.length ? 'Sonuç yok.' : 'Henüz kendi eklediğin besin yok.'}</div>`; return; }
+  box.innerHTML = list.map(resultRow).join('');
+  box.querySelectorAll('.res').forEach(el => el.addEventListener('click', () => openFoodSheet(getFood(el.dataset.id))));
+}
+
+let editingFood = null, fUnit = 'g';
+function setFUnit(u){
+  fUnit = u;
+  $('fUnitSeg').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.unit === u));
+  $('fPer').textContent = `100 ${u} başına`;
+}
+function openFoodSheet(food, presetName=''){
+  editingFood = food || null;
+  const db = food && isDb(food);
+  $('foodTitle').textContent = !food ? 'Yeni besin' : db ? 'Değerleri düzelt' : 'Besini düzenle';
+  $('fName').value = food ? food.name : presetName;
+  $('fKcal').value = food?.kcal ?? '';
+  $('fProtein').value = food?.protein ?? '';
+  $('fCarb').value = food?.carb ?? '';
+  $('fFat').value = food?.fat ?? '';
+  setFUnit(food ? food.unit : 'g');
+  // Kendi besininde "Sil"; düzelttiğin bir Migros/Genel üründe "Orijinale dön"
+  $('fDelete').textContent = db ? 'Orijinale dön' : 'Sil';
+  $('fDelete').style.display = !food ? 'none' : db ? (food.edited ? '' : 'none') : '';
+  openSheet('sheetFood');
+}
+function saveFood(){
+  const name = $('fName').value.trim();
+  const kcal = num($('fKcal').value);
+  if(!name){ toast('İsim gir'); return; }
+  if(kcal == null){ toast('Kalori gir'); return; }
+  const data = {name, unit:fUnit, kcal, protein:num($('fProtein').value)??0, carb:num($('fCarb').value)??0, fat:num($('fFat').value)};
+  let id;
+  if(editingFood && isDb(editingFood)){ id = editingFood.id; overrides[id] = data; saveOverrides(); }
+  else if(editingFood){ Object.assign(editingFood, data); id = editingFood.id; saveFoods(); }
+  else { id = 'f'+Date.now(); foods.push({id, ...data}); saveFoods(); }
+  closeSheet('sheetFood'); renderLib(); toast('Kaydedildi');
+  // Miktar ekranı açıksa güncel değerlerle yenile
+  if($('sheetAmount').classList.contains('open') && amt && amt.food.id === id){
+    openAmount({food:getFood(id), entryIdx:amt.entryIdx, amount:num($('amtInput').value)});
+  } else if($('sheetSearch').classList.contains('open')){
+    renderSearch($('searchInput').value);
+  }
+}
+function deleteFood(){
+  if(!editingFood) return;
+  if(isDb(editingFood)){
+    if(!confirm('Düzelttiğin değerler silinip orijinal veriye dönülsün mü?')) return;
+    delete overrides[editingFood.id]; saveOverrides();
+  } else {
+    if(!confirm(`"${editingFood.name}" silinsin mi? Geçmiş kayıtların etkilenmez.`)) return;
+    foods = foods.filter(f => f !== editingFood); saveFoods();
+  }
+  closeSheet('sheetFood'); renderLib(); toast('Tamam');
+  if($('sheetAmount').classList.contains('open') && amt){
+    const f = getFood(amt.food.id); if(f) openAmount({food:f, entryIdx:amt.entryIdx, amount:num($('amtInput').value)});
+  }
+}
+
+/* =========================================================
+   KİLO
+   ========================================================= */
+function weights(){
+  const out = [];
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith('k4_weight:')){
+      const kg = parseFloat(localStorage.getItem(k));
+      if(!isNaN(kg)) out.push({date:k.slice(10), kg});
+    }
+  }
+  return out.sort((a,b)=> a.date < b.date ? -1 : 1);
+}
+function weightAt(list, daysAgo){
+  const target = addDays(ymd(new Date()), -daysAgo);
+  // hedef tarihteki ya da ondan sonraki ilk kayıt (o dönemin başlangıç kilosu)
+  return list.find(w => w.date >= target) || null;
+}
+function renderWeight(){
+  const list = weights();
+  const today = ymd(new Date());
+  const t = list.find(w=>w.date===today);
+  $('weightInput').value = t ? t.kg : '';
+  const last = list[list.length-1];
+  const ch = (d) => { const p = weightAt(list, d); return last && p && p !== last ? last.kg - p.kg : null; };
+  const sign = v => v == null ? '—' : (v > 0 ? '+' : '') + fmt(v,1);
+  $('weightStats').innerHTML = `
+    <div class="stat"><div class="v">${last ? fmt(last.kg,1) : '—'}</div><div class="k">son (kg)</div></div>
+    <div class="stat"><div class="v">${sign(ch(7))}</div><div class="k">7 gün</div></div>
+    <div class="stat"><div class="v">${sign(ch(30))}</div><div class="k">30 gün</div></div>`;
+  const has = list.length > 0;
+  $('weightChart').style.display = has ? 'block' : 'none';
+  $('weightChartEmpty').style.display = has ? 'none' : 'block';
+  if(has) drawChart($('weightChart'), list.slice(-30).map(w=>w.kg), {color:'--accent', pad:true});
+  $('weightHistory').innerHTML = has ? list.slice().reverse().slice(0,60).map(w => {
+    const d = parseYmd(w.date).toLocaleDateString('tr-TR',{day:'numeric', month:'short', weekday:'short'});
+    return `<div class="wrow"><span><b>${fmt(w.kg,1)}</b> kg</span><span><span class="d">${d}</span><button class="x" data-d="${w.date}">×</button></span></div>`;
+  }).join('') : `<div class="empty">Henüz kayıt yok.</div>`;
+  $('weightHistory').querySelectorAll('.x').forEach(b => b.addEventListener('click', () => {
+    if(confirm('Bu kilo kaydı silinsin mi?')){ localStorage.removeItem('k4_weight:'+b.dataset.d); renderWeight(); }
+  }));
+}
+function saveWeight(){
+  const kg = num($('weightInput').value);
+  if(!kg || kg <= 0){ toast('Geçerli bir kilo gir'); return; }
+  localStorage.setItem('k4_weight:'+ymd(new Date()), String(kg));
+  $('weightInput').blur(); renderWeight(); toast('Kilo kaydedildi');
+}
+
+/* =========================================================
+   İSTATİSTİK
+   ========================================================= */
+// Dönem: takvim haftası (pazartesi başlar) ya da takvim ayı. offset: 0 = bu hafta/ay, -1 = önceki...
+let period = 'week', perOffset = 0;
+function periodRange(){
+  const now = new Date();
+  if(period === 'week'){
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    d.setDate(d.getDate() - ((d.getDay()+6) % 7) + perOffset*7);       // pazartesi
+    const start = ymd(d); return {start, end:addDays(start, 6)};
+  }
+  const s = new Date(now.getFullYear(), now.getMonth()+perOffset, 1);
+  const e = new Date(s.getFullYear(), s.getMonth()+1, 0);
+  return {start:ymd(s), end:ymd(e)};
+}
+function renderStats(){
+  const {start, end} = periodRange(), today = ymd(new Date());
+  const sd = parseYmd(start), ed = parseYmd(end);
+  if(period === 'week'){
+    $('perBig').textContent = perOffset === 0 ? 'Bu hafta' : perOffset === -1 ? 'Geçen hafta' : `${sd.getDate()} ${sd.toLocaleDateString('tr-TR',{month:'short'})} haftası`;
+    $('perSmall').textContent = `${sd.toLocaleDateString('tr-TR',{day:'numeric',month:'short'})} – ${ed.toLocaleDateString('tr-TR',{day:'numeric',month:'short'})}`;
+  } else {
+    const m = sd.toLocaleDateString('tr-TR',{month:'long', year:'numeric'});
+    $('perBig').textContent = perOffset === 0 ? 'Bu ay' : m;
+    $('perSmall').textContent = perOffset === 0 ? m : '';
+  }
+  $('perNext').style.visibility = perOffset < 0 ? 'visible' : 'hidden';
+
+  const days = [];
+  for(let d = start; d <= end; d = addDays(d, 1)){
+    const future = d > today;
+    const e = future ? [] : load('k4_day:'+d, []);
+    days.push({date:d, future, has:!future && dayIncluded(d, e), entries:e.length, ...totals(e)});
+  }
+  const logged = days.filter(d=>d.has);
+  const skipped = days.filter(d => !d.has && d.entries > 0).length;
+  const avg = k => logged.length ? logged.reduce((s,d)=>s+d[k],0)/logged.length : null;
+  $('statDaysNote').textContent = `${logged.length} gün hesaba katıldı` + (skipped ? ` · ${skipped} eksik gün dışarıda` : '');
+  $('avgStats').innerHTML = [
+    {k:'kcal', l:'kcal', c:'--kcal'}, {k:'protein', l:'protein g', c:'--protein'},
+    {k:'carb', l:'karb g', c:'--carb'}, {k:'fat', l:'yağ g', c:'--fat'}
+  ].map(x=>`<div class="stat"><div class="v" style="color:var(${x.c})">${fmt(avg(x.k))}</div><div class="k">${x.l}</div></div>`).join('');
+  const under = logged.filter(d => d.kcal <= goals.kcal).length;
+  $('goalStats').innerHTML = `
+    <div class="stat"><div class="v">${logged.length}</div><div class="k">sayılan gün</div></div>
+    <div class="stat"><div class="v" style="color:var(--carb)">${under}</div><div class="k">hedef içinde</div></div>
+    <div class="stat"><div class="v" style="color:var(--danger)">${logged.length-under}</div><div class="k">hedef üstü</div></div>`;
+
+  const label = (d, i) => period === 'week'
+    ? parseYmd(d.date).toLocaleDateString('tr-TR',{weekday:'short'})
+    : ([0,4,9,14,19,24].includes(i) || i === days.length-1 ? String(i+1) : '');
+
+  const hasK = logged.length > 0;
+  $('statsChart').style.display = hasK ? 'block' : 'none';
+  $('statsChartEmpty').style.display = hasK ? 'none' : 'block';
+  if(hasK) drawBars($('statsChart'), days, label);
+
+  const wmap = Object.fromEntries(weights().map(w=>[w.date, w.kg]));
+  days.forEach(d => d.kg = wmap[d.date] ?? null);
+  const ws = days.filter(d => d.kg != null);
+  $('weightDelta').textContent = ws.length >= 2
+    ? `${fmt(ws[0].kg,1)} → ${fmt(ws[ws.length-1].kg,1)} kg (${ws[ws.length-1].kg-ws[0].kg > 0 ? '+' : ''}${fmt(ws[ws.length-1].kg-ws[0].kg,1)})`
+    : ws.length === 1 ? `${fmt(ws[0].kg,1)} kg` : '';
+  $('weightPerChart').style.display = ws.length ? 'block' : 'none';
+  $('weightPerEmpty').style.display = ws.length ? 'none' : 'block';
+  if(ws.length) drawLine($('weightPerChart'), days, label);
+}
+
+function chartSetup(cv){
+  const ctx = cv.getContext('2d'), dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 320, H = cv.clientHeight || 170;
+  cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  ctx.font = '10.5px -apple-system, sans-serif'; ctx.textBaseline = 'middle';
+  return {ctx, W, H, col};
+}
+function niceStep(range, ticks){
+  const raw = range / ticks, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+function gridY(c, L, R, T, ih, lo, hi, step, dec){
+  const y = v => T + ih - (v-lo)/(hi-lo)*ih;
+  c.ctx.textAlign = 'right';
+  for(let v = lo; v <= hi + 1e-9; v += step){
+    c.ctx.strokeStyle = c.col('--line'); c.ctx.lineWidth = 1;
+    c.ctx.beginPath(); c.ctx.moveTo(L, y(v)); c.ctx.lineTo(c.W-R, y(v)); c.ctx.stroke();
+    c.ctx.fillStyle = c.col('--text-3'); c.ctx.fillText(fmt(v, dec), L-6, y(v));
+  }
+  return y;
+}
+function xLabels(c, days, x, label){
+  c.ctx.fillStyle = c.col('--text-3'); c.ctx.textAlign = 'center';
+  days.forEach((d,i) => { const t = label(d,i); if(t) c.ctx.fillText(t, x(i), c.H-8); });
+}
+
+// Kalori: sütunlar, 0'dan başlar
+function drawBars(cv, days, label){
+  const c = chartSetup(cv), L = 38, R = 8, T = 10, B = 22, iw = c.W-L-R, ih = c.H-T-B, n = days.length;
+  const slot = iw/n, x = i => L + slot*(i+.5);
+  const top = Math.max(goals.kcal||0, ...days.map(d=>d.has?d.kcal:0)) * 1.08;
+  const step = niceStep(top, 3), hi = Math.ceil(top/step)*step;
+  const y = gridY(c, L, R, T, ih, 0, hi, step, 0);
+  const bw = Math.max(4, Math.min(26, slot*.62)), r = Math.min(5, bw/2);
+  days.forEach((d,i) => {
+    if(d.future || (!d.has && !d.entries)) return;
+    c.ctx.fillStyle = d.has ? c.col('--kcal') : c.col('--line');
+    const yy = y(d.kcal);
+    c.ctx.beginPath(); c.ctx.roundRect ? c.ctx.roundRect(x(i)-bw/2, yy, bw, T+ih-yy, [r,r,0,0]) : c.ctx.rect(x(i)-bw/2, yy, bw, T+ih-yy); c.ctx.fill();
+  });
+  if(goals.kcal){
+    c.ctx.strokeStyle = c.col('--text-2'); c.ctx.setLineDash([5,4]); c.ctx.lineWidth = 1.2;
+    c.ctx.beginPath(); c.ctx.moveTo(L, y(goals.kcal)); c.ctx.lineTo(c.W-R, y(goals.kcal)); c.ctx.stroke(); c.ctx.setLineDash([]);
+  }
+  xLabels(c, days, x, label);
+}
+
+// Kilo: çizgi, eksen kilonun kendi aralığına göre (düz çizgi gibi görünmesin)
+function drawLine(cv, days, label){
+  const c = chartSetup(cv), L = 38, R = 8, T = 10, B = 22, iw = c.W-L-R, ih = c.H-T-B, n = days.length;
+  const slot = iw/n, x = i => L + slot*(i+.5);
+  const pts = days.map((d,i) => d.kg != null ? [i, d.kg] : null).filter(Boolean);
+  let lo = Math.min(...pts.map(p=>p[1])), hi = Math.max(...pts.map(p=>p[1]));
+  const mid = (lo+hi)/2, span = Math.max(1, (hi-lo)*1.4);              // en az 1 kg aralık
+  const step = niceStep(span, 3);
+  lo = Math.floor((mid-span/2)/step)*step; hi = Math.ceil((mid+span/2)/step)*step;
+  const y = gridY(c, L, R, T, ih, lo, hi, step, step < 1 ? 1 : 0);
+  const col = c.col('--accent');
+  const g = c.ctx.createLinearGradient(0,T,0,T+ih); g.addColorStop(0, col+'30'); g.addColorStop(1, col+'00');
+  c.ctx.beginPath(); pts.forEach((p,k)=> k ? c.ctx.lineTo(x(p[0]),y(p[1])) : c.ctx.moveTo(x(p[0]),y(p[1])));
+  if(pts.length > 1){ c.ctx.lineTo(x(pts[pts.length-1][0]), T+ih); c.ctx.lineTo(x(pts[0][0]), T+ih); c.ctx.closePath(); c.ctx.fillStyle = g; c.ctx.fill(); }
+  c.ctx.strokeStyle = col; c.ctx.lineWidth = 2.5; c.ctx.lineJoin = 'round';
+  c.ctx.beginPath(); pts.forEach((p,k)=> k ? c.ctx.lineTo(x(p[0]),y(p[1])) : c.ctx.moveTo(x(p[0]),y(p[1]))); c.ctx.stroke();
+  pts.forEach(p => { c.ctx.beginPath(); c.ctx.arc(x(p[0]), y(p[1]), 3.5, 0, Math.PI*2); c.ctx.fillStyle = c.col('--card'); c.ctx.fill(); c.ctx.lineWidth = 2; c.ctx.stroke(); });
+  xLabels(c, days, x, label);
+}
+
+function drawChart(cv, values, opt={}){
+  const ctx = cv.getContext('2d'), dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 320, H = 150;
+  cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const vals = values.filter(v=>v!=null); if(!vals.length) return;
+  let max = Math.max(...vals, opt.goal||-Infinity), min = opt.pad ? Math.min(...vals) : 0;
+  if(opt.pad){ const r = (max-min)||1; max += r*.2; min -= r*.2; }
+  else max *= 1.1;
+  if(max === min) max = min + 1;
+  const P = 12, sx = (W-P*2)/((values.length-1)||1), y = v => H-P-((v-min)/(max-min))*(H-P*2);
+  ctx.font = '11px -apple-system, sans-serif'; ctx.fillStyle = col('--text-3');
+  if(opt.goal){
+    ctx.strokeStyle = col('--text-3'); ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(P,y(opt.goal)); ctx.lineTo(W-P,y(opt.goal)); ctx.stroke(); ctx.setLineDash([]);
+  }
+  const c = col(opt.color||'--accent');
+  const pts = values.map((v,i)=> v==null ? null : [P+i*sx, y(v)]).filter(Boolean);
+  // alan
+  ctx.beginPath(); pts.forEach((p,i)=> i ? ctx.lineTo(...p) : ctx.moveTo(...p));
+  ctx.lineTo(pts[pts.length-1][0], H-P); ctx.lineTo(pts[0][0], H-P); ctx.closePath();
+  const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0, c+'33'); g.addColorStop(1, c+'00');
+  ctx.fillStyle = g; ctx.fill();
+  // çizgi
+  ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath(); pts.forEach((p,i)=> i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke();
+  ctx.fillStyle = c; pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p[0],p[1],3,0,Math.PI*2); ctx.fill(); });
+  // min/max etiketleri
+  ctx.fillStyle = col('--text-3');
+  ctx.fillText(fmt(Math.max(...vals), opt.pad?1:0), 4, 11);
+}
+
+/* =========================================================
+   OLAYLAR
+   ========================================================= */
+/* =========================================================
+   YEDEK
+   ========================================================= */
+function renderBackupNote(){
+  $('oldDataCard').style.display = hasOldData() ? '' : 'none';
+  const t = localStorage.getItem('k4_lastbackup');
+  $('backupNote').textContent = t ? 'Son: ' + parseYmd(t).toLocaleDateString('tr-TR', {day:'numeric', month:'short'}) : 'Henüz yedek yok';
+}
+// Bu uygulama verilerini "k4_" ile başlayan anahtarlarda tutar. Eski uygulama "kt_" kullanıyordu; ona dokunulmaz.
+function hasOldData(){ return Object.keys(localStorage).some(k => k.startsWith('kt_')); }
+async function exportBackup(old=false){
+  const pre = old ? 'kt_' : 'k4_';
+  const data = {};
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(k.startsWith(pre) && k !== 'k4_lastbackup') data[k] = localStorage.getItem(k);
+  }
+  const today = ymd(new Date());
+  const name = old ? `kalori-eski-uygulama-${today}.json` : `kalori-yedek-${today}.json`;
+  const blob = new Blob([JSON.stringify({app: old ? 'kalori-takip-eski' : 'kalori-takip', v:1, tarih:today, data}, null, 1)], {type:'application/json'});
+  const file = new File([blob], name, {type:'application/json'});
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:name});
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+    }
+    if(!old){ localStorage.setItem('k4_lastbackup', today); renderBackupNote(); }
+    toast('Dosya hazır');
+  }catch(e){ if(e.name !== 'AbortError') toast('Yedek alınamadı'); }
+}
+function importBackup(file){
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const j = JSON.parse(r.result);
+      if(j.app !== 'kalori-takip' || !j.data) throw 0;
+      const n = Object.keys(j.data).filter(k=>k.startsWith('k4_day:')).length;
+      if(!confirm(`${j.tarih} tarihli yedek yüklensin mi? (${n} günlük kayıt)\nTelefondaki mevcut verilerin bununla değiştirilecek.`)) return;
+      Object.keys(localStorage).filter(k=>k.startsWith('k4_')).forEach(k=>localStorage.removeItem(k));
+      Object.entries(j.data).forEach(([k,v]) => { if(k.startsWith('k4_')) localStorage.setItem(k, v); });
+      location.reload();
+    }catch(e){ toast('Bu dosya geçerli bir yedek değil'); }
+  };
+  r.readAsText(file);
+}
+
+function showView(id){
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  $('fab').style.display = id === 'view-log' ? '' : 'none';
+  if(id === 'view-weight') renderWeight();
+  if(id === 'view-stats'){ renderStats(); renderBackupNote(); }
+  if(id === 'view-foods') renderLib();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
+$('prevDay').onclick = () => { currentDate = addDays(currentDate,-1); refreshLog(); };
+$('nextDay').onclick = () => { currentDate = addDays(currentDate, 1); refreshLog(); };
+$('dateInput').onchange = e => { if(e.target.value){ currentDate = e.target.value; refreshLog(); } };
+
+$('fab').onclick = openSearch;
+$('searchInput').addEventListener('input', e => renderSearch(e.target.value));
+$('openQuick').onclick = () => openQuick(null);
+$('qSave').onclick = saveQuick;
+$('qDelete').onclick = () => { const i = quickIdx; closeSheet('sheetQuick'); deleteEntry(i); };
+
+$('amtInput').addEventListener('input', updateAmount);
+$('amtInput').addEventListener('keydown', e => { if(e.key === 'Enter') saveAmount(); });
+$('amtSave').onclick = saveAmount;
+$('amtDelete').onclick = () => { const i = amt.entryIdx; closeSheet('sheetAmount'); deleteEntry(i); };
+$('amtEditFood').onclick = () => { const f = getFood(amt.food.id); if(f) openFoodSheet(f); };
+
+$('libSearch').addEventListener('input', renderLib);
+$('newFoodBtn').onclick = () => openFoodSheet(null);
+$('fUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setFUnit(b.dataset.unit)));
+$('fSave').onclick = saveFood;
+$('fDelete').onclick = deleteFood;
+
+$('editGoalsBtn').onclick = () => {
+  $('gKcal').value = goals.kcal; $('gProtein').value = goals.protein; $('gCarb').value = goals.carb; $('gFat').value = goals.fat;
+  openSheet('sheetGoals');
+};
+$('gSave').onclick = () => {
+  goals = {kcal:num($('gKcal').value)||0, protein:num($('gProtein').value)||0, carb:num($('gCarb').value)||0, fat:num($('gFat').value)||0};
+  save('k4_goals', goals); closeSheet('sheetGoals'); renderSummary(); toast('Hedefler kaydedildi');
+};
+
+$('saveWeightBtn').onclick = saveWeight;
+$('perPrev').onclick = () => { perOffset--; renderStats(); };
+$('perNext').onclick = () => { if(perOffset < 0){ perOffset++; renderStats(); } };
+$('flagToggle').onchange = e => {
+  localStorage.setItem('k4_flag:'+currentDate, e.target.checked ? 'in' : 'out');
+  renderFlag(); toast(e.target.checked ? 'Gün istatistiğe dahil' : 'Gün istatistik dışı');
+};
+$('exportBtn').onclick = () => exportBackup(false);
+$('oldExportBtn').onclick = () => exportBackup(true);
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = e => { if(e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ''; };
+$('periodSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  period = b.dataset.p; perOffset = 0;
+  $('periodSeg').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+  renderStats();
+}));
+
+loadAll();
+refreshLog();
+renderLib();
+loadMigros();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
