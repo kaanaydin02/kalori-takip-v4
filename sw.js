@@ -1,5 +1,5 @@
 // Sürümü her güncellemede artır: eski önbellek silinir.
-const CACHE = 'kalori-v12';
+const CACHE = 'kalori-v13';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
