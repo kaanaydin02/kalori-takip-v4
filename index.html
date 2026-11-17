@@ -67,7 +67,9 @@
   .macros{flex:1; display:flex; flex-direction:column; gap:11px;}
   .macro .top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;}
   .macro .top b{font-weight:650;}
-  .macro .top span{color:var(--text-2);}
+  .macro .top > span{color:var(--text-2); white-space:nowrap;}
+  .macro .top b{white-space:nowrap;}
+  .macro .top .over-tag{font-size:11px; font-weight:700; color:#fff; background:var(--danger); border-radius:6px; padding:1px 5px; margin-left:4px;}
   .track{height:7px; border-radius:6px; background:var(--soft); overflow:hidden;}
   .fill{height:100%; border-radius:6px; transition:width .3s;}
   .remain{margin-top:14px; padding-top:12px; border-top:1px solid var(--line); display:flex; justify-content:space-between; font-size:14px;}
@@ -438,7 +440,7 @@
 const $ = id => document.getElementById(id);
 const MACROS = [
   {key:'protein', label:'Protein', short:'P', color:'var(--protein)'},
-  {key:'carb',    label:'Karbonhidrat', short:'K', color:'var(--carb)'},
+  {key:'carb',    label:'Karb', short:'K', color:'var(--carb)'},
   {key:'fat',     label:'Yağ', short:'Y', color:'var(--fat)'},
 ];
 
@@ -589,8 +591,9 @@ function renderSummary(){
   $('macroBars').innerHTML = MACROS.map(m => {
     const v = t[m.key], g = goals[m.key] || 0;
     const w = g ? Math.min(100, v / g * 100) : 0;
-    return `<div class="macro">
-      <div class="top"><b>${m.label}</b><span>${round(v)} / ${round(g)} g</span></div>
+    const over = g && round(v) > round(g);
+    return `<div class="macro${over ? ' over' : ''}">
+      <div class="top"><b>${m.label}</b><span>${round(v)} / ${round(g)} g${over ? `<span class="over-tag">+${round(v-g)}</span>` : ''}</span></div>
       <div class="track"><div class="fill" style="width:${w}%; background:${m.color}"></div></div>
     </div>`;
   }).join('');
