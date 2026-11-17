@@ -1,5 +1,5 @@
 // Sürümü her güncellemede artır: eski önbellek silinir.
-const CACHE = 'kalori-v11';
+const CACHE = 'kalori-v12';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -16,17 +16,21 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Önce önbellekten hızlıca göster, arkada internetten yenisini çekip önbelleği güncelle.
-// Böylece offline çalışır, yeni sürüm de bir sonraki açılışta gelir. foods.json da böyle önbelleğe alınır.
+// İnternet varsa önce en yeni sürümü al (güncellemeler hemen görünür) ve önbelleği güncelle.
+// İnternet yoksa önbellekteki sürümü aç (offline çalışır).
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(e.request, { ignoreSearch: true });
-      const network = fetch(e.request)
-        .then((res) => { if (res.ok) cache.put(e.request, res.clone()); return res; })
-        .catch(() => cached);
-      return cached || network;
+      try {
+        const res = await fetch(e.request, { cache: 'no-cache' });
+        if (res.ok) cache.put(e.request, res.clone());
+        return res;
+      } catch (err) {
+        const cached = await cache.match(e.request, { ignoreSearch: true });
+        if (cached) return cached;
+        throw err;
+      }
     })
   );
 });
